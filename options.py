@@ -48,6 +48,8 @@ class FreqAwareDepthOptions:
                                  help='coefficient of negative '
                                       'exponential function',
                                  type=int, default=3)
+        self.parser.add_argument("--random_seed",
+                                 default=None, type=int)
 
         self.parser.add_argument("--model_name",
                                  type=str,
