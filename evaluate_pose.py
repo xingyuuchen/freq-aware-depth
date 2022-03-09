@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from layers import transformation_from_parameters
 from utils import readlines
-from options import MonodepthOptions
+from options import FreqAwareDepthOptions
 from datasets import KITTIOdomDataset
 import networks
 
@@ -130,5 +130,5 @@ def evaluate(opt):
 
 
 if __name__ == "__main__":
-    options = MonodepthOptions()
+    options = FreqAwareDepthOptions()
     evaluate(options.parse())

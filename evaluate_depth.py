@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from layers import disp_to_depth
 from utils import readlines
-from options import MonodepthOptions
+from options import FreqAwareDepthOptions
 import datasets
 import networks
 
@@ -163,7 +163,7 @@ def evaluate(opt):
         quit()
 
     gt_path = os.path.join(splits_dir, opt.eval_split, "gt_depths.npz")
-    gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1')["data"]
+    gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
 
     print("-> Evaluating")
 
@@ -221,10 +221,10 @@ def evaluate(opt):
     mean_errors = np.array(errors).mean(0)
 
     print("\n  " + ("{:>8} | " * 7).format("abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"))
-    print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()) + "\\\\")
+    print(("&{: 8.4f}  " * 7).format(*mean_errors.tolist()) + "\\\\")
     print("\n-> Done!")
 
 
 if __name__ == "__main__":
-    options = MonodepthOptions()
+    options = FreqAwareDepthOptions()
     evaluate(options.parse())
