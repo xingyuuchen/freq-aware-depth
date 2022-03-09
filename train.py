@@ -7,9 +7,9 @@
 from __future__ import absolute_import, division, print_function
 
 from trainer import Trainer
-from options import MonodepthOptions
+from options import FreqAwareDepthOptions
 
-options = MonodepthOptions()
+options = FreqAwareDepthOptions()
 opts = options.parse()
 
 

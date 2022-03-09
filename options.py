@@ -12,7 +12,7 @@ import argparse
 file_dir = os.path.dirname(__file__)  # the directory that options.py resides in
 
 
-class MonodepthOptions:
+class FreqAwareDepthOptions:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Monodepthv2 options")
 
@@ -27,6 +27,28 @@ class MonodepthOptions:
                                  default=os.path.join(os.path.expanduser("~"), "tmp"))
 
         # TRAINING options
+        self.parser.add_argument("--disable_auto_blur",
+                                 help="if set, disable Auto-Blur",
+                                 default=False, action="store_true")
+        self.parser.add_argument("--receptive_field_of_auto_blur",
+                                 type=int, default=9)
+        self.parser.add_argument("--disable_ambiguity_mask",
+                                 help="if set, disable Ambiguity-Masking",
+                                 default=False,
+                                 action="store_true")
+        self.parser.add_argument("--ambiguity_thresh",
+                                 type=float,
+                                 help="threshold for ambiguous pixels",
+                                 default=0.3)
+        self.parser.add_argument("--ambiguity_by_negative_exponential",
+                                 help='if set, use negative exponential '
+                                      'to replace threshold',
+                                 default=False, action="store_true")
+        self.parser.add_argument("--negative_exponential_coefficient",
+                                 help='coefficient of negative '
+                                      'exponential function',
+                                 type=int, default=3)
+
         self.parser.add_argument("--model_name",
                                  type=str,
                                  help="the name of the folder to save the model in",
