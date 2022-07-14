@@ -40,6 +40,12 @@ class FreqAwareDepthOptions:
                                  type=float,
                                  help="threshold for ambiguous pixels",
                                  default=0.3)
+        self.parser.add_argument("--hf_pixel_thresh",
+                                 type=float,
+                                 help="hf pixel thresh in Auto-Blur",
+                                 default=0.2)
+        self.parser.add_argument("--hf_area_percent_thresh",
+                                 type=int, default=60)
         self.parser.add_argument("--ambiguity_by_negative_exponential",
                                  help='if set, use negative exponential '
                                       'to replace threshold',
@@ -58,7 +64,8 @@ class FreqAwareDepthOptions:
         self.parser.add_argument("--split",
                                  type=str,
                                  help="which training split to use",
-                                 choices=["eigen_zhou", "eigen_full", "odom", "benchmark"],
+                                 choices=["eigen_zhou", "eigen_full", "odom", "benchmark",
+                                          "cityscapes_preprocessed"],
                                  default="eigen_zhou")
         self.parser.add_argument("--num_layers",
                                  type=int,
@@ -69,7 +76,8 @@ class FreqAwareDepthOptions:
                                  type=str,
                                  help="dataset to train on",
                                  default="kitti",
-                                 choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test"])
+                                 choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test",
+                                          "cityscapes_preprocessed"])
         self.parser.add_argument("--png",
                                  help="if set, trains from raw KITTI png files (instead of jpgs)",
                                  action="store_true")
@@ -206,8 +214,8 @@ class FreqAwareDepthOptions:
         self.parser.add_argument("--eval_split",
                                  type=str,
                                  default="eigen",
-                                 choices=[
-                                    "eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"],
+                                 choices=["eigen", "eigen_benchmark", "benchmark", "odom_9",
+                                          "odom_10", "cityscapes"],
                                  help="which split to run eval on")
         self.parser.add_argument("--save_pred_disps",
                                  help="if set saves predicted disparities",

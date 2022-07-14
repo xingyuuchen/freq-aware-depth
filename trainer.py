@@ -109,6 +109,7 @@ class Trainer:
 
         # data
         datasets_dict = {"kitti": datasets.KITTIRAWDataset,
+                         "cityscapes_preprocessed": datasets.CityscapesPreprocessedDataset,
                          "kitti_odom": datasets.KITTIOdomDataset}
         self.dataset = datasets_dict[self.opt.dataset]
 
@@ -144,8 +145,13 @@ class Trainer:
             self.ssim = SSIM()
             self.ssim.to(self.device)
         if not self.opt.disable_auto_blur:
+            assert self.opt.receptive_field_of_auto_blur % 2 == 1, \
+                'receptive_field_of_auto_blur should be an odd number'
             self.auto_blur = networks.AutoBlurModule(
-                self.opt.receptive_field_of_auto_blur)
+                self.opt.receptive_field_of_auto_blur,
+                hf_pixel_thresh=self.opt.hf_pixel_thresh,
+                hf_area_percent_thresh=self.opt.hf_area_percent_thresh,
+            )
             self.auto_blur.to(self.device)
 
         self.backproject_depth = {}
@@ -234,6 +240,7 @@ class Trainer:
         if not self.opt.disable_auto_blur:
             for scale in self.opt.scales:
                 for f_i in self.opt.frame_ids:
+                    inputs[('raw_color', f_i, scale)] = inputs[('color', f_i, scale)]
                     inputs[('color', f_i, scale)] = self.auto_blur(
                         inputs[('color', f_i, scale)])
 
@@ -426,7 +433,8 @@ class Trainer:
                 source_scale = 0
 
             disp = outputs[("disp", scale)]
-            color = inputs[("color", 0, scale)]
+            color = inputs[("color", 0, scale)] if self.opt.disable_ambiguity_mask \
+                else inputs[('raw_color', 0, scale)]
             target = inputs[("color", 0, source_scale)]
 
             for frame_id in self.opt.frame_ids[1:]:
@@ -610,9 +618,12 @@ class Trainer:
         for j in range(min(4, self.opt.batch_size)):  # write a maxmimum of four images
             for s in self.opt.scales:
                 for frame_id in self.opt.frame_ids:
-                    writer.add_image(
-                        "color_{}_{}/{}".format(frame_id, s, j),
-                        inputs[("color", frame_id, s)][j].data, self.step)
+                    # writer.add_image(
+                    #     "color_{}_{}/{}".format(frame_id, s, j),
+                    #     inputs[("color", frame_id, s)][j].data, self.step)
+                    # writer.add_image(
+                    #     "raw_color_{}_{}/{}".format(frame_id, s, j),
+                    #     inputs[("raw_color", frame_id, s)][j].data, self.step)
                     if s == 0 and frame_id != 0:
                         writer.add_image(
                             "color_pred_{}_{}/{}".format(frame_id, s, j),

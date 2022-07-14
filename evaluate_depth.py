@@ -12,11 +12,12 @@ from utils import readlines
 from options import FreqAwareDepthOptions
 import datasets
 import networks
+import tqdm
 
 cv2.setNumThreads(0)  # This speeds up evaluation 5x on our unix systems (OpenCV 3.3.1)
 
 
-splits_dir = os.path.join(os.path.dirname(__file__), "splits")
+splits_dir = "splits"
 
 # Models which were trained with stereo supervision were trained with a nominal
 # baseline of 0.1 units. The KITTI rig has a baseline of 54cm. Therefore,
@@ -79,11 +80,25 @@ def evaluate(opt):
         decoder_path = os.path.join(opt.load_weights_folder, "depth.pth")
 
         encoder_dict = torch.load(encoder_path)
+        try:
+            HEIGHT, WIDTH = encoder_dict['height'], encoder_dict['width']
+        except KeyError:
+            print('No "height" or "width" keys found in the encoder state_dict, resorting to '
+                  'using command line values!')
+            HEIGHT, WIDTH = opt.height, opt.width
 
-        dataset = datasets.KITTIRAWDataset(opt.data_path, filenames,
-                                           encoder_dict['height'], encoder_dict['width'],
-                                           [0], 4, is_train=False)
-        dataloader = DataLoader(dataset, 16, shuffle=False, num_workers=opt.num_workers,
+        if opt.eval_split == 'cityscapes':
+            dataset = datasets.CityscapesEvalDataset(opt.data_path, filenames,
+                                                     HEIGHT, WIDTH,
+                                                     [0], 4,
+                                                     is_train=False)
+
+        else:
+            dataset = datasets.KITTIRAWDataset(opt.data_path, filenames,
+                                               HEIGHT, WIDTH,
+                                               [0], 4,
+                                               is_train=False)
+        dataloader = DataLoader(dataset, opt.batch_size, shuffle=False, num_workers=opt.num_workers,
                                 pin_memory=True, drop_last=False)
 
         encoder = networks.ResnetEncoder(opt.num_layers, False)
@@ -100,25 +115,17 @@ def evaluate(opt):
 
         pred_disps = []
 
-        print("-> Computing predictions with size {}x{}".format(
-            encoder_dict['width'], encoder_dict['height']))
+        print("-> Computing predictions with size {}x{}".format(HEIGHT, WIDTH))
 
         with torch.no_grad():
-            for data in dataloader:
+            for i, data in tqdm.tqdm(enumerate(dataloader)):
                 input_color = data[("color", 0, 0)].cuda()
 
-                if opt.post_process:
-                    # Post-processed results require each image to have two forward passes
-                    input_color = torch.cat((input_color, torch.flip(input_color, [3])), 0)
-
-                output = depth_decoder(encoder(input_color))
+                output = encoder(input_color)
+                output = depth_decoder(output)
 
                 pred_disp, _ = disp_to_depth(output[("disp", 0)], opt.min_depth, opt.max_depth)
                 pred_disp = pred_disp.cpu()[:, 0].numpy()
-
-                if opt.post_process:
-                    N = pred_disp.shape[0] // 2
-                    pred_disp = batch_post_process_disparity(pred_disp[:N], pred_disp[N:, :, ::-1])
 
                 pred_disps.append(pred_disp)
 
@@ -162,8 +169,12 @@ def evaluate(opt):
         print("-> No ground truth is available for the KITTI benchmark, so not evaluating. Done.")
         quit()
 
-    gt_path = os.path.join(splits_dir, opt.eval_split, "gt_depths.npz")
-    gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
+    if opt.eval_split == 'cityscapes':
+        print('loading cityscapes gt depths individually due to their combined size!')
+        gt_depths = os.path.join(splits_dir, opt.eval_split, "gt_depths")
+    else:
+        gt_path = os.path.join(splits_dir, opt.eval_split, "gt_depths.npz")
+        gt_depths = np.load(gt_path, fix_imports=True, encoding='latin1', allow_pickle=True)["data"]
 
     print("-> Evaluating")
 
@@ -177,15 +188,29 @@ def evaluate(opt):
 
     errors = []
     ratios = []
+    for i in tqdm.tqdm(range(pred_disps.shape[0])):
 
-    for i in range(pred_disps.shape[0]):
+        if opt.eval_split == 'cityscapes':
+            gt_depth = np.load(os.path.join(gt_depths, str(i).zfill(3) + '_depth.npy'))
+            gt_height, gt_width = gt_depth.shape[:2]
+            # crop ground truth to remove ego car -> this has happened in the dataloader for input
+            # images
+            gt_height = int(round(gt_height * 0.75))
+            gt_depth = gt_depth[:gt_height]
 
-        gt_depth = gt_depths[i]
-        gt_height, gt_width = gt_depth.shape[:2]
+        else:
+            gt_depth = gt_depths[i]
+            gt_height, gt_width = gt_depth.shape[:2]
 
-        pred_disp = pred_disps[i]
+        pred_disp = np.squeeze(pred_disps[i])
         pred_disp = cv2.resize(pred_disp, (gt_width, gt_height))
         pred_depth = 1 / pred_disp
+
+        if opt.eval_split == 'cityscapes':
+            # when evaluating cityscapes, we centre crop to the middle 50% of the image.
+            # Bottom 25% has already been removed - so crop the sides and the top here
+            gt_depth = gt_depth[256:, 192:1856]
+            pred_depth = pred_depth[256:, 192:1856]
 
         if opt.eval_split == "eigen":
             mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
@@ -196,6 +221,8 @@ def evaluate(opt):
             crop_mask[crop[0]:crop[1], crop[2]:crop[3]] = 1
             mask = np.logical_and(mask, crop_mask)
 
+        elif opt.eval_split == 'cityscapes':
+            mask = np.logical_and(gt_depth > MIN_DEPTH, gt_depth < MAX_DEPTH)
         else:
             mask = gt_depth > 0
 

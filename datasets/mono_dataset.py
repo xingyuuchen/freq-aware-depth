@@ -111,6 +111,9 @@ class MonoDataset(data.Dataset):
     def __len__(self):
         return len(self.filenames)
 
+    def load_intrinsics(self, folder, frame_index):
+        return self.K.copy()
+
     def __getitem__(self, index):
         """Returns a single training item from the dataset as a dictionary.
 
@@ -140,29 +143,35 @@ class MonoDataset(data.Dataset):
         do_color_aug = self.is_train and random.random() > 0.5
         do_flip = self.is_train and random.random() > 0.5
 
-        line = self.filenames[index].split()
-        folder = line[0]
+        folder, frame_index, side = self.index_to_folder_and_frame_idx(index)
 
-        if len(line) == 3:
-            frame_index = int(line[1])
+        poses = {}
+        if type(self).__name__ in ["CityscapesPreprocessedDataset", "CityscapesEvalDataset"]:
+            inputs.update(self.get_colors(folder, frame_index, side, do_flip))
         else:
-            frame_index = 0
-
-        if len(line) == 3:
-            side = line[2]
-        else:
-            side = None
-
-        for i in self.frame_idxs:
-            if i == "s":
-                other_side = {"r": "l", "l": "r"}[side]
-                inputs[("color", i, -1)] = self.get_color(folder, frame_index, other_side, do_flip)
-            else:
-                inputs[("color", i, -1)] = self.get_color(folder, frame_index + i, side, do_flip)
+            for i in self.frame_idxs:
+                if i == "s":
+                    other_side = {"r": "l", "l": "r"}[side]
+                    inputs[("color", i, -1)] = self.get_color(
+                        folder, frame_index, other_side, do_flip)
+                else:
+                    try:
+                        inputs[("color", i, -1)] = self.get_color(
+                            folder, frame_index + i, side, do_flip)
+                    except FileNotFoundError as e:
+                        if i != 0:
+                            # fill with dummy values
+                            inputs[("color", i, -1)] = \
+                                Image.fromarray(np.zeros((100, 100, 3)).astype(np.uint8))
+                            poses[i] = None
+                        else:
+                            raise FileNotFoundError(f'Cannot find frame - make sure your '
+                                                    f'--data_path is set correctly, or try adding'
+                                                    f' the --png flag. {e}')
 
         # adjusting intrinsics to match each scale in the pyramid
         for scale in range(self.num_scales):
-            K = self.K.copy()
+            K = self.load_intrinsics(folder, frame_index)
 
             K[0, :] *= self.width // (2 ** scale)
             K[1, :] *= self.height // (2 ** scale)
@@ -184,18 +193,10 @@ class MonoDataset(data.Dataset):
             del inputs[("color", i, -1)]
             del inputs[("color_aug", i, -1)]
 
-        if self.load_depth:
+        if self.load_depth and False:
             depth_gt = self.get_depth(folder, frame_index, side, do_flip)
             inputs["depth_gt"] = np.expand_dims(depth_gt, 0)
             inputs["depth_gt"] = torch.from_numpy(inputs["depth_gt"].astype(np.float32))
-
-        if "s" in self.frame_idxs:
-            stereo_T = np.eye(4, dtype=np.float32)
-            baseline_sign = -1 if do_flip else 1
-            side_sign = -1 if side == "l" else 1
-            stereo_T[0, 3] = side_sign * baseline_sign * 0.1
-
-            inputs["stereo_T"] = torch.from_numpy(stereo_T)
 
         return inputs
 
@@ -206,4 +207,7 @@ class MonoDataset(data.Dataset):
         raise NotImplementedError
 
     def get_depth(self, folder, frame_index, side, do_flip):
+        raise NotImplementedError
+
+    def index_to_folder_and_frame_idx(self, index):
         raise NotImplementedError
