@@ -1,10 +1,12 @@
 # Freq-Aware-Depth
 
-This is the official PyTorch implementation of our paper "[Frequency-Aware Self-Supervised Depth Estimation]()" (**WACV 2023**)
+This is the official PyTorch implementation of our paper "[Frequency-Aware Self-Supervised Depth Estimation](https://arxiv.org/abs/2210.05479)" (**WACV 2023**)
 
-We introduce **FreqAwareDepth**, with highly generalizable performance-boosting features that can be easily integrated into other models, see the [paper]() for more details.
+We introduce **FreqAwareDepth**, with highly generalizable performance-boosting features that can be easily integrated into other models, see the [paper](https://arxiv.org/abs/2210.05479) for more details.
 
 Our methods introduce no more than **10%** extra training time and no extra inference time at all.
+
+### 🎬 Watch our [video](https://youtu.be/iAJ4TQHNd_s).
 
 
 ## 🍻 KITTI Results
@@ -18,6 +20,7 @@ conda install pytorch=1.7.1 torchvision=0.8.2 -c pytorch
 pip install tensorboardX==1.5     # 1.4 also ok
 conda install opencv=3.4.2    # just needed for evaluation, 3.3.1 also ok
 ```
+Our code is build upon [monodepth2](https://github.com/nianticlabs/monodepth2).
 
 
 ## 🚄 Training
@@ -65,5 +68,5 @@ python export_gt_depth.py --data_path {KITTI_path} --split eigen
 
 ## ✏️ Citation
 
-If you find our work useful or interesting, please consider citing [our paper]().
+If you find our work useful or interesting, please consider citing [our paper](https://arxiv.org/abs/2210.05479).
 
