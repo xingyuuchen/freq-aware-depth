@@ -68,5 +68,14 @@ python export_gt_depth.py --data_path {KITTI_path} --split eigen
 
 ## ✏️ Citation
 
-If you find our work useful or interesting, please consider citing [our paper](https://arxiv.org/abs/2210.05479).
+If you find our work useful or interesting, please consider citing our paper:
+```latex
+@inproceedings{chen2023frequency,
+  title={{Frequency-Aware Self-Supervised Monocular Depth Estimation}},
+  author={Chen, Xingyu and Li, Thomas H and Zhang, Ruonan and Li, Ge},
+  booktitle={Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision},
+  pages={5808--5817},
+  year={2023}
+}
+```
 
